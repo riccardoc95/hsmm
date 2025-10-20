@@ -1,0 +1,9 @@
+useDynLib(hsmmpackage, .registration = TRUE)
+importFrom(Rcpp, evalCpp)
+
+# Esporta funzioni principali
+export(fit_hsmm)
+
+# Import da altri pacchetti
+#importFrom(mvtnorm, dmvnorm)
+#importFrom(VGAM, clogloglink)
