@@ -29,7 +29,7 @@ This package implements the methodology introduced in:
 install.packages(c("Rcpp", "R6", "stats", "MASS", "mvtnorm", "Matrix"))
 
 # Install from GitHub (after building)
-devtools::install_github("yourusername/hsmm")
+devtools::install_github("riccardoc95/hsmm")
 ````
 
 ---
@@ -84,26 +84,9 @@ The package is structured into modular components:
 
 ---
 
-## Example: HSMM with Covariates
-
-```r
-# Fit HSMM with wind speed as duration covariate
-fit <- fit_hsmm(
-  data = torus_data,
-  n_states = 3,
-  family = "toroidal",
-  covariates_q = wind_speed,
-  covariates_omega = temperature
-)
-
-# Extract dwell time distributions
-fit$duration.model$get_params()
-```
-
----
 
 
-## 📚 References
+## References
 
 * Lagona, F., & Mingione, M. (2025).
   *Nonhomogeneous Hidden Semi-Markov Models for Toroidal Data.*
