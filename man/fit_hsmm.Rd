@@ -56,10 +56,10 @@ ensure reproducibility.}
 \value{
 A list containing the estimated objects and the input parameters:
 \itemize{
-  \item \code{input_params}: parameters used during fitting.
-  \item \code{emission.model}: fitted emission model object.
-  \item \code{transition.model}: fitted transition model object.
-  \item \code{duration.model}: fitted duration model object.
+\item \code{input_params}: parameters used during fitting.
+\item \code{emission.model}: fitted emission model object.
+\item \code{transition.model}: fitted transition model object.
+\item \code{duration.model}: fitted duration model object.
 }
 }
 \description{

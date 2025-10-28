@@ -1,3 +1,12 @@
+#' Gaussian Emission Model for HMM/HSMM
+#'
+#' Models the emission distribution of each hidden state as a multivariate
+#' Gaussian. Used within an HMM or HSMM framework.
+#'
+#' @field mu Matrix (n_states x n_dim) of mean vectors.
+#' @field sigma 3D array (n_dim x n_dim x n_states) of covariance matrices.
+#' @field density Matrix of computed emission densities for each observation and state.
+#'
 GaussianModel <- R6Class(
   "GaussianModel",
   inherit = EmissionModel,
@@ -6,13 +15,20 @@ GaussianModel <- R6Class(
     sigma = NULL,
     density = NULL,
     
+    #' @description
+    #' Initializes Gaussian model parameters (\code{mu}, \code{sigma}) using weighted sample estimates.
+    #' @param params List of model parameters including \code{data} and \code{n_states}.
+    #' @param Pi Initial state probabilities.
+    #' @param post.pi Posterior probabilities per state (from previous iteration).
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
-
-      # Inizializzazione parametri
+      
+      # Initialize parameters based on data dimensionality
       n_dim <- ncol(params$data)
       mu_init <- matrix(0, params$n_states, n_dim)
       sigma_init <- array(0, dim = c(n_dim, n_dim, params$n_states))
+      
+      # Weighted estimation for each state's mean and covariance
       for (k in 1:params$n_states) {
         w <- post.pi[, k]
         sw <- sum(w)
@@ -24,10 +40,12 @@ GaussianModel <- R6Class(
       self$mu <- mu_init
       self$sigma <- sigma_init
       
-      # Calcolo densità iniziale
+      # Compute initial emission densities
       self$compute_density(params)
     },
     
+    #' @description
+    #' Computes Gaussian emission densities for all observations and states.
     compute_density = function(params, Pi) {
       dens <- array(dim = c(params$n_obs, params$n_states))
       for (k in 1:params$n_states) {
@@ -36,11 +54,15 @@ GaussianModel <- R6Class(
       self$density <- dens
     },
     
+    #' @description
+    #' Updates the Gaussian model parameters (\code{mu}, \code{sigma}) using new posterior weights.
     update = function(params, Pi, post.pi) {
       data <- params$data
       n_dim <- ncol(data)
       mu_new <- matrix(0, params$n_states, n_dim)
       sigma_new <- array(0, dim = c(n_dim, n_dim, params$n_states))
+      
+      # Re-estimate weighted mean and covariance
       for (k in 1:params$n_states) {
         w <- post.pi[, k]
         sw <- sum(w)
@@ -58,7 +80,13 @@ GaussianModel <- R6Class(
 )
 
 
-
+#' Poisson Emission Model
+#'
+#' Models emission probabilities using a Poisson distribution for count data.
+#'
+#' @field lambda Numeric vector of Poisson rate parameters (\eqn{\lambda_k}).
+#' @field density Matrix of emission probabilities for each observation and state.
+#'
 PoissonModel <- R6Class(
   "PoissonModel",
   inherit = EmissionModel,
@@ -69,8 +97,8 @@ PoissonModel <- R6Class(
     
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
-
-      # Inizializzazione lambda
+      
+      # Weighted initialization of lambda for each state
       lambda_init <- numeric(params$n_states)
       data <- params$data
       for (k in 1:params$n_states) {
@@ -102,7 +130,6 @@ PoissonModel <- R6Class(
         lambda_new[k] <- sum(w * data) / sum(w)
       }
       self$lambda <- lambda_new
-      
       self$compute_density(params)
       invisible(self)
     }
@@ -110,6 +137,13 @@ PoissonModel <- R6Class(
 )
 
 
+#' Exponential Emission Model
+#'
+#' Models continuous non-negative data using an exponential distribution.
+#'
+#' @field lambda Numeric vector of rate parameters.
+#' @field density Matrix of emission probabilities for each observation and state.
+#'
 ExponentialModel <- R6Class(
   "ExponentialModel",
   inherit = EmissionModel,
@@ -121,8 +155,7 @@ ExponentialModel <- R6Class(
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
       
-      
-      # Inizializzazione lambda
+      # Weighted initialization of lambda for each state
       lambda_init <- numeric(params$n_states)
       data <- params$data
       for (k in 1:params$n_states) {
@@ -130,7 +163,6 @@ ExponentialModel <- R6Class(
         lambda_init[k] <- sum(w) / sum(w * data)
       }
       self$lambda <- lambda_init
-      
       self$compute_density(params)
       invisible(self)
     },
@@ -154,7 +186,6 @@ ExponentialModel <- R6Class(
         lambda_new[k] <- sum(w) / sum(w * data)
       }
       self$lambda <- lambda_new
-      
       self$compute_density(params)
       invisible(self)
     }
@@ -162,6 +193,14 @@ ExponentialModel <- R6Class(
 )
 
 
+#' Gamma Emission Model
+#'
+#' Models emission probabilities using a Gamma distribution.
+#'
+#' @field shape Numeric vector of shape parameters.
+#' @field scale Numeric vector of scale parameters.
+#' @field density Matrix of emission probabilities for each observation and state.
+#'
 GammaModel <- R6Class(
   "GammaModel",
   inherit = EmissionModel,
@@ -174,8 +213,7 @@ GammaModel <- R6Class(
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
       
-      
-      # Inizializzazione shape e scale
+      # Weighted initialization of shape and scale
       shape_init <- numeric(params$n_states)
       scale_init <- numeric(params$n_states)
       data <- params$data
@@ -188,7 +226,6 @@ GammaModel <- R6Class(
       }
       self$shape <- shape_init
       self$scale <- scale_init
-      
       self$compute_density(params)
       invisible(self)
     },
@@ -217,7 +254,6 @@ GammaModel <- R6Class(
       }
       self$shape <- shape_new
       self$scale <- scale_new
-      
       self$compute_density(params)
       invisible(self)
     }
@@ -225,6 +261,14 @@ GammaModel <- R6Class(
 )
 
 
+#' Beta Emission Model
+#'
+#' Models emission probabilities for variables bounded in [0, 1] using the Beta distribution.
+#'
+#' @field alpha Shape parameter α for each state.
+#' @field beta Shape parameter β for each state.
+#' @field density Matrix of emission probabilities for each observation and state.
+#'
 BetaModel <- R6Class(
   "BetaModel",
   inherit = EmissionModel,
@@ -237,8 +281,7 @@ BetaModel <- R6Class(
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
       
-      
-      # Inizializzazione alpha e beta
+      # Weighted initialization of alpha and beta parameters
       alpha_init <- numeric(params$n_states)
       beta_init <- numeric(params$n_states)
       data <- params$data
@@ -252,7 +295,6 @@ BetaModel <- R6Class(
       }
       self$alpha <- alpha_init
       self$beta <- beta_init
-      
       self$compute_density(params)
       invisible(self)
     },
@@ -282,7 +324,6 @@ BetaModel <- R6Class(
       }
       self$alpha <- alpha_new
       self$beta <- beta_new
-      
       self$compute_density(params)
       invisible(self)
     }
@@ -290,6 +331,16 @@ BetaModel <- R6Class(
 )
 
 
+#' Student-t Emission Model
+#'
+#' Models emission probabilities using a Student-t distribution, allowing for
+#' heavier tails compared to the Gaussian model.
+#'
+#' @field mu Mean for each state.
+#' @field sigma Scale (standard deviation) for each state.
+#' @field df Degrees of freedom.
+#' @field density Matrix of emission probabilities for each observation and state.
+#'
 StudentTModel <- R6Class(
   "StudentTModel",
   inherit = EmissionModel,
@@ -303,12 +354,11 @@ StudentTModel <- R6Class(
     initialize = function(params, Pi, post.pi) {
       super$initialize(params, Pi, post.pi)
       
-      
-      # Inizializzazione parametri mu, sigma, df
+      # Weighted initialization for mu and sigma
       mu_init <- numeric(params$n_states)
       sigma_init <- numeric(params$n_states)
-      # df iniziale fisso, es 10
-      df_init <- rep(10, params$n_states)
+      df_init <- rep(10, params$n_states)  # Default degrees of freedom
+      
       data <- params$data
       for (k in 1:params$n_states) {
         w <- post.pi[, k]
@@ -318,7 +368,6 @@ StudentTModel <- R6Class(
       self$mu <- mu_init
       self$sigma <- sigma_init
       self$df <- df_init
-      
       self$compute_density(params)
       invisible(self)
     },
@@ -337,8 +386,9 @@ StudentTModel <- R6Class(
       data <- params$data
       mu_new <- numeric(params$n_states)
       sigma_new <- numeric(params$n_states)
-      df_new <- self$df  # manteniamo df fisso o potresti definire altra logica
+      df_new <- self$df  # Keep df fixed by default
       
+      # Weighted updates
       for (k in 1:params$n_states) {
         w <- post.pi[, k]
         mu_new[k] <- sum(w * data) / sum(w)
@@ -347,7 +397,6 @@ StudentTModel <- R6Class(
       self$mu <- mu_new
       self$sigma <- sigma_new
       self$df <- df_new
-      
       self$compute_density(params)
       invisible(self)
     }

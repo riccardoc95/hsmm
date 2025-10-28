@@ -49,62 +49,80 @@
 #' }
 #' @export
 fit_hsmm <- function(
-  #HMM
+    # HMM parameters
   data,
   n_states,
   covariates_omega = NULL,
   covariates_q = NULL,
-
-  # HSMM
+  
+  # HSMM settings
   semi = TRUE,
   max_dwell = NULL,
   
   # Model Type
   model_type = "torus",
-
+  
+  # EM algorithm parameters
   max_iter = 100,
   tol = 1e-5,
   verbose = TRUE,
   init = NULL,
   seed = NULL) {
   
-  n_obs <- nrow(data)
-  
-  if(!is.null(max_dwell)){
-    dwell_lengths <- rep(max_dwell, n_states)
-    state_indices <- rep(1:n_states, dwell_lengths)
-  } else {
-    max_dwell <- 1
-    dwell_lengths <- rep(max_dwell, n_states)
-    state_indices <- rep(1:n_states, dwell_lengths)
-  }
-
+  # Collect function arguments into a parameter list
   params <- c(as.list(environment()))
   
-  # duration model
-  duration.model.factory <-DurationModelFactory$new()
+  # Number of observations (rows in data)
+  params$n_obs <- nrow(params$data)
+  
+  # ============================
+  # Dwell-time and state indices
+  # ============================
+  # If user specifies a maximum dwell time, assign per-state dwell lengths.
+  if(!is.null(params$max_dwell)){
+    params$dwell_lengths <- rep(params$max_dwell, params$n_states)
+    params$state_indices <- rep(1:params$n_states, params$dwell_lengths)
+  } else {
+    # Default: single-step dwell times (reduces to a standard HMM)
+    params$max_dwell <- 1
+    params$dwell_lengths <- rep(params$max_dwell, params$n_states)
+    params$state_indices <- rep(1:params$n_states, params$dwell_lengths)
+  }
+  
+  # ============================
+  # Model construction (via factories)
+  # ============================
+  
+  # Duration model
+  duration.model.factory <- DurationModelFactory$new()
   duration.model <- duration.model.factory$create(params)
   
-  # transition model
+  # Transition model
   transition.model.factory <- TransitionModelFactory$new()
   transition.model <- transition.model.factory$create(params, 
                                                       duration.model$p.array)
   
-  # emission model
+  # Emission model
   emission.model.factory <- EmissionModelFactory$new()
   emission.model <- emission.model.factory$create(params,
                                                   transition.model$Pi,
                                                   transition.model$post.pi)
   
-  # EM-algorithm
+  # ============================
+  # EM Algorithm
+  # ============================
+  # Perform iterative parameter estimation
   llk <- em.algorithm(params, 
                       emission.model, transition.model, duration.model)
   
+  # ============================
+  # Output
+  # ============================
+  # Return fitted model components and input configuration
   return(list(
     input_params = params,
     emission.model = emission.model,
     transition.model = transition.model,
     duration.model = duration.model
   ))
-  
 }

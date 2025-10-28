@@ -2,10 +2,10 @@
 # Generator token: 10BE3573-1514-4C36-9D1C-5A225CD40393
 
 Gamma_f_cpp <- function(Omega, p_array, K, M, ld, d) {
-    .Call(`_hsmmpackage_Gamma_f_cpp`, Omega, p_array, K, M, ld, d)
+    .Call('_hsmmpackage_Gamma_f_cpp', PACKAGE = 'hsmmpackage', Omega, p_array, K, M, ld, d)
 }
 
 lbackward_forward <- function(lfit, Gamma, Pi, ld, K, M) {
-    .Call(`_hsmmpackage_lbackward_forward`, lfit, Gamma, Pi, ld, K, M)
+    .Call('_hsmmpackage_lbackward_forward', PACKAGE = 'hsmmpackage', lfit, Gamma, Pi, ld, K, M)
 }
 
