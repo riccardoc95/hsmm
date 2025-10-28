@@ -5,3 +5,7 @@ backward_forward <- function(fit, Gamma, Pi_in, K, M) {
     .Call(`_hsmm_backward_forward`, fit, Gamma, Pi_in, K, M)
 }
 
+compute_gamma <- function(omega, omega_time, p_array, K, M, use_time_varying = FALSE) {
+    .Call(`_hsmm_compute_gamma`, omega, omega_time, p_array, K, M, use_time_varying)
+}
+

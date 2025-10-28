@@ -142,9 +142,9 @@ test_fit_hsmm_errors <- function(model_type="torus") {
   covariates_q_list <- list(NULL, matrix(runif(n_obs*2), ncol=2))
   semi_list <- c(TRUE, FALSE)
   max_dwell_list <- list(2, 5)
-  max_iter_list <- c(20)
+  max_iter_list <- c(200)
   tol_list <- c(1e-5)
-  verbose_list <- c(FALSE)
+  verbose_list <- c(TRUE)
   seeds <- c(1234)
 
   error_log <- list()

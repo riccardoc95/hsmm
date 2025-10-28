@@ -26,9 +26,26 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// compute_gamma
+arma::cube compute_gamma(const arma::mat& omega, const arma::cube& omega_time, const arma::mat& p_array, const int K, const int M, const bool use_time_varying);
+RcppExport SEXP _hsmm_compute_gamma(SEXP omegaSEXP, SEXP omega_timeSEXP, SEXP p_arraySEXP, SEXP KSEXP, SEXP MSEXP, SEXP use_time_varyingSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< const arma::mat& >::type omega(omegaSEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type omega_time(omega_timeSEXP);
+    Rcpp::traits::input_parameter< const arma::mat& >::type p_array(p_arraySEXP);
+    Rcpp::traits::input_parameter< const int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const int >::type M(MSEXP);
+    Rcpp::traits::input_parameter< const bool >::type use_time_varying(use_time_varyingSEXP);
+    rcpp_result_gen = Rcpp::wrap(compute_gamma(omega, omega_time, p_array, K, M, use_time_varying));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_hsmm_backward_forward", (DL_FUNC) &_hsmm_backward_forward, 5},
+    {"_hsmm_compute_gamma", (DL_FUNC) &_hsmm_compute_gamma, 6},
     {NULL, NULL, 0}
 };
 
