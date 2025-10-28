@@ -1,0 +1,2 @@
+PKG_CXXFLAGS += -fopenmp -O3 -march=native -DARMA_DONT_USE_WRAPPER
+PKG_LIBS += -fopenmp

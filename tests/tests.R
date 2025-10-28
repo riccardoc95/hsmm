@@ -7,7 +7,7 @@ library(nnet)
 library(MASS)
 library(circular)
 library(jsonlite)
-#library(hsmm)
+library(hsmm)
 #
 # devtools::document()
 # roxygen2::roxygenise()
@@ -24,19 +24,20 @@ library(jsonlite)
 # devtools::build()
 # install.packages("hsmm_0.1.0.tar.gz", repos = NULL, type = "source")
 
+# devtools::install()
 
-setwd("~/Develops/rstudio/hsmm/hsmm")
-
-set.seed(42)
-
-files <- list.files(path = "R",
-                    pattern = "\\.[Rr]$",
-                    full.names = TRUE,
-                    recursive = TRUE)
-for (f in files) {
-  cat("Importando script:", f, "\n")
-  source(f)
-}
+# setwd("~/Develops/rstudio/hsmm/hsmm")
+#
+# set.seed(42)
+#
+# files <- list.files(path = "R",
+#                     pattern = "\\.[Rr]$",
+#                     full.names = TRUE,
+#                     recursive = TRUE)
+# for (f in files) {
+#   cat("Importando script:", f, "\n")
+#   source(f)
+# }
 
 
 generate_data <- function(n_obs = 200,
@@ -265,4 +266,4 @@ test_fit_hsmm_errors <- function(model_type="torus") {
 test_log <- test_fit_hsmm_errors(model_type="gaussian")
 
 
-write_json(test_log, path = "test_log.json", pretty = TRUE, auto_unbox = TRUE)
+# write_json(test_log, path = "test_log.json", pretty = TRUE, auto_unbox = TRUE)

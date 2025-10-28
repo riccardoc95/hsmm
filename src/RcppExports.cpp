@@ -11,46 +11,28 @@ Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
 Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
-// Gamma_f_cpp
-arma::cube Gamma_f_cpp(const arma::mat& Omega, const arma::mat& p_array, int K, int M, arma::vec ld, arma::vec d);
-RcppExport SEXP _hsmmpackage_Gamma_f_cpp(SEXP OmegaSEXP, SEXP p_arraySEXP, SEXP KSEXP, SEXP MSEXP, SEXP ldSEXP, SEXP dSEXP) {
+// backward_forward
+Rcpp::List backward_forward(const arma::mat& fit, const arma::cube& Gamma, const arma::vec& Pi_in, const int K, const int M);
+RcppExport SEXP _hsmm_backward_forward(SEXP fitSEXP, SEXP GammaSEXP, SEXP Pi_inSEXP, SEXP KSEXP, SEXP MSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< const arma::mat& >::type Omega(OmegaSEXP);
-    Rcpp::traits::input_parameter< const arma::mat& >::type p_array(p_arraySEXP);
-    Rcpp::traits::input_parameter< int >::type K(KSEXP);
-    Rcpp::traits::input_parameter< int >::type M(MSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type ld(ldSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type d(dSEXP);
-    rcpp_result_gen = Rcpp::wrap(Gamma_f_cpp(Omega, p_array, K, M, ld, d));
-    return rcpp_result_gen;
-END_RCPP
-}
-// lbackward_forward
-List lbackward_forward(arma::mat lfit, arma::cube Gamma, arma::vec Pi, arma::vec ld, int K, int M);
-RcppExport SEXP _hsmmpackage_lbackward_forward(SEXP lfitSEXP, SEXP GammaSEXP, SEXP PiSEXP, SEXP ldSEXP, SEXP KSEXP, SEXP MSEXP) {
-BEGIN_RCPP
-    Rcpp::RObject rcpp_result_gen;
-    Rcpp::RNGScope rcpp_rngScope_gen;
-    Rcpp::traits::input_parameter< arma::mat >::type lfit(lfitSEXP);
-    Rcpp::traits::input_parameter< arma::cube >::type Gamma(GammaSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type Pi(PiSEXP);
-    Rcpp::traits::input_parameter< arma::vec >::type ld(ldSEXP);
-    Rcpp::traits::input_parameter< int >::type K(KSEXP);
-    Rcpp::traits::input_parameter< int >::type M(MSEXP);
-    rcpp_result_gen = Rcpp::wrap(lbackward_forward(lfit, Gamma, Pi, ld, K, M));
+    Rcpp::traits::input_parameter< const arma::mat& >::type fit(fitSEXP);
+    Rcpp::traits::input_parameter< const arma::cube& >::type Gamma(GammaSEXP);
+    Rcpp::traits::input_parameter< const arma::vec& >::type Pi_in(Pi_inSEXP);
+    Rcpp::traits::input_parameter< const int >::type K(KSEXP);
+    Rcpp::traits::input_parameter< const int >::type M(MSEXP);
+    rcpp_result_gen = Rcpp::wrap(backward_forward(fit, Gamma, Pi_in, K, M));
     return rcpp_result_gen;
 END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_hsmmpackage_Gamma_f_cpp", (DL_FUNC) &_hsmmpackage_Gamma_f_cpp, 6},
-    {"_hsmmpackage_lbackward_forward", (DL_FUNC) &_hsmmpackage_lbackward_forward, 6},
+    {"_hsmm_backward_forward", (DL_FUNC) &_hsmm_backward_forward, 5},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_hsmmpackage(DllInfo *dll) {
+RcppExport void R_init_hsmm(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

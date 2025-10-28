@@ -18,14 +18,6 @@ RoxygenNote: 7.3.3
 Depends: R (>= 4.0.0)
 Imports:
     R6,
-    mvtnorm,
-    dplyr,
-    tidyr,
-    MASS,
-    circular,
-    jsonlite,
-    nnet,
-    LaplacesDemon,
     Rcpp,
     RcppArmadillo
 LinkingTo:
@@ -35,5 +27,13 @@ Suggests:
     testthat (>= 3.0.0),
     pkgdown,
     knitr,
-    rmarkdown
+    rmarkdown,
+    mvtnorm,
+    dplyr,
+    tidyr,
+    MASS,
+    circular,
+    jsonlite,
+    nnet,
+    LaplacesDemon,
 VignetteBuilder: knitr
