@@ -54,27 +54,27 @@ fit_hsmm <- function(
   n_states,
   covariates_omega = NULL,
   covariates_q = NULL,
-  
+
   # HSMM settings
   semi = TRUE,
   max_dwell = NULL,
-  
+
   # Model Type
   model_type = "torus",
-  
+
   # EM algorithm parameters
   max_iter = 100,
   tol = 1e-5,
   verbose = TRUE,
   init = NULL,
   seed = NULL) {
-  
+
   # Collect function arguments into a parameter list
   params <- c(as.list(environment()))
-  
+
   # Number of observations (rows in data)
   params$n_obs <- nrow(params$data)
-  
+
   # ============================
   # Dwell-time and state indices
   # ============================
@@ -88,33 +88,33 @@ fit_hsmm <- function(
     params$dwell_lengths <- rep(params$max_dwell, params$n_states)
     params$state_indices <- rep(1:params$n_states, params$dwell_lengths)
   }
-  
+
   # ============================
   # Model construction (via factories)
   # ============================
-  
+
   # Duration model
   duration.model.factory <- DurationModelFactory$new()
   duration.model <- duration.model.factory$create(params)
-  
+
   # Transition model
   transition.model.factory <- TransitionModelFactory$new()
-  transition.model <- transition.model.factory$create(params, 
+  transition.model <- transition.model.factory$create(params,
                                                       duration.model$p.array)
-  
+
   # Emission model
   emission.model.factory <- EmissionModelFactory$new()
   emission.model <- emission.model.factory$create(params,
                                                   transition.model$Pi,
                                                   transition.model$post.pi)
-  
+
   # ============================
   # EM Algorithm
   # ============================
   # Perform iterative parameter estimation
-  llk <- em.algorithm(params, 
+  llk <- em.algorithm(params,
                       emission.model, transition.model, duration.model)
-  
+
   # ============================
   # Output
   # ============================
@@ -123,6 +123,7 @@ fit_hsmm <- function(
     input_params = params,
     emission.model = emission.model,
     transition.model = transition.model,
-    duration.model = duration.model
+    duration.model = duration.model,
+    loglik = llk
   ))
 }
