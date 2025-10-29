@@ -8,9 +8,9 @@
 using namespace Rcpp;
 
 // [[Rcpp::export]]
-Rcpp::List backward_forward(const arma::mat& fit,      // n x S? (or n x K, but we expand)
-                                const arma::cube& Gamma,   // (n-1) x S x S  <-- NOTE: R stores [t, h, k]
-                                const arma::vec& Pi_in,    // length K
+Rcpp::List backward_forward(const arma::mat& fit,
+                                const arma::cube& Gamma,
+                                const arma::vec& Pi_in,
                                 const int K,
                                 const int M) {
 

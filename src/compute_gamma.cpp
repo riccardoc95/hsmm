@@ -8,9 +8,9 @@ using namespace Rcpp;
 
 // [[Rcpp::export]]
 arma::cube compute_gamma(
-    const arma::mat& omega,          // K×K (fixed), ignored if use_time_varying = true
-    const arma::cube& omega_time,    // (n-1)×K×K
-    const arma::mat& p_array,        // n×(K*M)
+    const arma::mat& omega,
+    const arma::cube& omega_time,
+    const arma::mat& p_array,
     const int K,
     const int M,
     const bool use_time_varying = false

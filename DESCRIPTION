@@ -1,6 +1,6 @@
 Package: hsmm
 Title: Hidden Semi-Markov Model Toolkit
-Version: 0.1.0
+Version: 0.0.1
 Authors@R: 
     person(
       given = "Nome",

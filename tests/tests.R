@@ -136,12 +136,16 @@ generate_data <- function(n_obs = 200,
 test_fit_hsmm_errors <- function(model_type="torus") {
   set.seed(42)
   n_obs <- 50
-  n_states_list <- c(2, 3, 4)  # variazione di n_states
+  n_states_list <- c(2, 3, 8)  # variazione di n_states
 
-  covariates_omega_list <- list(NULL, matrix(runif(n_obs*2), ncol=2))
-  covariates_q_list <- list(NULL, matrix(runif(n_obs*2), ncol=2))
+  covariates_omega_list <- list(NULL,
+                                matrix(runif(n_obs*2), ncol=2),
+                                matrix(runif(n_obs*4), ncol=4))
+  covariates_q_list <- list(NULL,
+                            matrix(runif(n_obs*2), ncol=2),
+                            matrix(runif(n_obs*4), ncol=4))
   semi_list <- c(TRUE, FALSE)
-  max_dwell_list <- list(2, 5)
+  max_dwell_list <- list(2, 5, 8)
   max_iter_list <- c(200)
   tol_list <- c(1e-5)
   verbose_list <- c(TRUE)
