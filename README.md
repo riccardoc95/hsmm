@@ -1,99 +1,123 @@
-# hsmm: Hidden Semi-Markov Models with Covariates in R
+# hsmm
 
-> Framework for fitting non-homogeneous Hidden Semi-Markov Models (HSMMs) and Hidden Markov Models (HMMs) with covariates, explicit duration modeling, and flexible emission distributions.
+A small R package for fitting and simulating hidden semi-Markov models (HSMMs)
+and hidden Markov models (HMMs). The code is intentionally direct: R6 objects
+hold the duration, transition and emission pieces, while the augmented-state
+forward-backward algorithm is written in C++ with RcppArmadillo.
 
----
-
-## Overview
-
-`hsmm` is an R package for estimating **Hidden Semi-Markov Models (HSMMs)** and **Hidden Markov Models (HMMs)** under a unified and extensible framework.  
-It supports **time-varying covariates**, **explicit dwell-time distributions**, and **various emission models** (Gaussian, Poisson, Gamma, Torus, etc.), allowing for both homogeneous and non-homogeneous latent dynamics.
-
-This package implements the methodology introduced in:
-
-- Lagona & Mingione (2025). *Nonhomogeneous Hidden Semi-Markov Models for Toroidal Data*.  
-  *Journal of the Royal Statistical Society: Series C (Applied Statistics)*, 74(1), 142–166.  
-  [https://doi.org/10.1093/jrsssc/qlae049](https://doi.org/10.1093/jrsssc/qlae049)
-
-- Mingione, Di Loro, Lagona & Maruotti (2025).  
-  *Environmental Risk Assessment via Nonhomogeneous Hidden Semi-Markov Models with Penalized Vector Auto-Regression*.  
-  *arXiv preprint*, [arXiv:2509.14387v1](https://arxiv.org/abs/2509.14387v1).
-
----
 
 
 ## Installation
 
+From the repository directory:
+
 ```r
-# Install dependencies
-install.packages(c("Rcpp", "R6", "stats", "MASS", "mvtnorm", "Matrix"))
+install.packages(c("R6", "Rcpp", "RcppArmadillo"))
+install.packages(".", repos = NULL, type = "source")
+```
 
-# Install from GitHub (after building)
-devtools::install_github("riccardoc95/hsmm")
-````
+For development:
 
----
+```r
+install.packages("testthat")
+testthat::test_local()
+source(system.file("tests", "manual", "run_all_tests.R", package = "hsmm"))
+```
 
-## Basic Usage
+## First check: simulate and fit
 
 ```r
 library(hsmm)
 
-# Example: Fit a Gaussian HSMM with 3 hidden states
-model <- fit_hsmm(
-  data = your_timeseries,
+sim <- simulate_hsmm(
+  n = 250,
   n_states = 3,
-  semi = TRUE,
-  family = "gaussian",
-  covariates_omega = weather_covariates,
-  covariates_q = wind_speed
+  model_type = "gaussian",
+  n_dim = 2,
+  max_dwell = 12,
+  seed = 42
 )
 
-summary(model)
-plot(model)
+fit <- fit_hsmm(
+  data = sim$data,
+  n_states = 3,
+  model_type = "gaussian",
+  max_dwell = 12,
+  max_iter = 50,
+  seed = 42
+)
+
+fit
+summary(fit)
+plot(fit)
+head(fit$posterior)
+head(fit$decoded_state)
 ```
 
----
+## Covariates
 
-## Architecture
+```r
+set.seed(1)
+n <- 300
+x_q <- matrix(rnorm(n), ncol = 1)
+x_omega <- cbind(sin(seq(0, 6 * pi, length.out = n)))
+transition_coef <- list(
+  matrix(c(0, 1.0), 2, 1),
+  matrix(c(0, -0.8), 2, 1),
+  matrix(c(0, 0.5), 2, 1)
+)
 
-The package is structured into modular components:
+sim <- simulate_hsmm(
+  n = n,
+  n_states = 3,
+  covariates_q = x_q,
+  covariates_omega = x_omega,
+  duration_coef = matrix(c(0.8, -0.4, 0.2), 3, 1),
+  transition_coef = transition_coef,
+  seed = 1
+)
 
-| Component             | Description                                | Key File                                            |
-| --------------------- | ------------------------------------------ | --------------------------------------------------- |
-| **Emission Models**   | Define how observations are generated      | `R/models_emission_*.R`                             |
-| **Duration Models**   | Define dwell-time distributions            | `R/models_duration_*.R`                             |
-| **Transition Models** | Define how states change                   | `R/models_transition_*.R`                           |
-| **Factories**         | Build model components automatically       | `R/models_factory.R`                                |
-| **Algorithms**        | EM iterations, log-likelihood, convergence | `R/algorithms_em.R`                                 |
-| **C++ Core**          | Forward-backward & gamma computation       | `src/backward_forward.cpp`, `src/compute_gamma.cpp` |
+fit <- fit_hsmm(
+  sim$data,
+  n_states = 3,
+  covariates_q = x_q,
+  covariates_omega = x_omega,
+  max_dwell = 15,
+  max_iter = 30,
+  verbose = FALSE,
+  seed = 1
+)
+```
 
----
+## Emission models
 
-## EM Algorithm
+The argument `model_type` accepts:
 
-1. **E-step:**
+- `gaussian`
+- `poisson`
+- `exponential`
+- `gamma`
+- `beta`
+- `student`
+- `torus`
+- `vargaussian` (TODO!)
 
-   * Compute posterior probabilities via the forward–backward algorithm (`backward_forward.cpp`).
-2. **M-step:**
+The old argument name `family` is kept as an alias for `model_type`.
 
-   * Update emission, transition, and duration parameters using weighted likelihoods and GLMs.
-3. **Convergence:**
+## Main objects returned by `fit_hsmm`
 
-   * Stop when the change in log-likelihood < `tol`.
-
----
-
-
+- `posterior`: posterior probability of each latent state;
+- `decoded_state`: maximum-posterior state sequence;
+- `loglik` and `final_loglik`;
+- `duration.model`, `transition.model`, `emission.model`;
+- `posterior_augmented` and `pairwise_posterior` for lower-level work.
 
 ## References
 
-* Lagona, F., & Mingione, M. (2025).
-  *Nonhomogeneous Hidden Semi-Markov Models for Toroidal Data.*
-  *JRSS Series C*, 74(1), 142–166. [DOI](https://doi.org/10.1093/jrsssc/qlae049)
+Lagona, F. and Mingione, M. (2025). *Nonhomogeneous Hidden Semi-Markov
+Models for Toroidal Data*. Journal of the Royal Statistical Society Series C,
+74(1), 142-166. https://doi.org/10.1093/jrsssc/qlae049
 
-* Mingione, M., Di Loro, P. A., Lagona, F., & Maruotti, A. (2025).
-  *Environmental Risk Assessment via Nonhomogeneous Hidden Semi-Markov Models with Penalized VAR.*
-  *arXiv preprint*, [arXiv:2509.14387v1](https://arxiv.org/abs/2509.14387v1)
-
----
+Mingione, M., Di Loro, P. A., Lagona, F. and Maruotti, A. (2025).
+*Environmental Risk Assessment via Nonhomogeneous Hidden Semi-Markov Models
+with Penalized Vector Auto-Regression*. arXiv:2509.14387.

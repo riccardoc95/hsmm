@@ -1,129 +1,160 @@
-#' Fit a Hidden Semi-Markov Model (HSMM)
+#' Fit a hidden semi-Markov model
 #'
-#' Fits an HSMM (or HMM) from a matrix or data frame of observations while
-#' optionally incorporating covariates for the transition and dwell-time
-#' components and choosing among different emission families. The function
-#' builds the duration, transition, and emission models via their respective
-#' factories and runs the EM algorithm to estimate the parameters.
+#' Fits a small HSMM/HMM by EM. Duration hazards use a complementary log-log
+#' regression and transition covariates use conditional multinomial logits.
 #'
-#' @param data Matrix or data frame containing the observed sequence. Rows
-#'   correspond to time points and columns to observed variables.
-#' @param n_states Number of latent states of the model.
-#' @param covariates_omega Optional covariates for the emission model
-#'   \code{omega}. Must have the same number of rows as \code{data}.
-#' @param covariates_q Optional covariates for the dwell-time model \code{q}.
-#' @param semi Logical. If \code{TRUE} (default) the fitted model is an HSMM;
-#'   if \code{FALSE} it reduces to a standard HMM.
-#' @param max_dwell Maximum dwell time (in number of observations) allowed for
-#'   each state in the semi-Markov formulation. If \code{NULL}, a default value
-#'   of 1 is used.
-#' @param model_type Name of the model specification to use for the emission
-#'   component (for example \code{"torus"}, \code{"gaussian"}, etc.).
+#' @param data Numeric matrix or data frame. Rows are time points.
+#' @param n_states Number of latent states.
+#' @param covariates_omega Optional transition covariates.
+#' @param covariates_q Optional duration covariates.
+#' @param semi If `FALSE`, `max_dwell` is forced to one.
+#' @param max_dwell Number of augmented duration states per latent state.
+#' @param model_type Emission model: `gaussian`, `poisson`, `exponential`,
+#'   `gamma`, `beta`, `student`, `torus`, or `vargaussian`.
+#' @param family Old alias for `model_type`.
 #' @param max_iter Maximum number of EM iterations.
-#' @param tol Convergence tolerance for the EM algorithm.
-#' @param verbose Logical value indicating whether to print progress messages
-#'   during training.
-#' @param init Optional list with initial parameter values. If \code{NULL},
-#'   starting values are determined automatically.
-#' @param seed Numeric value used to set the random-number generator seed to
-#'   ensure reproducibility.
+#' @param tol Convergence tolerance on the log-likelihood difference.
+#' @param verbose Print one line per iteration.
+#' @param init Optional list of starting values.
+#' @param seed Optional random seed.
+#' @param ar Autoregressive order for `vargaussian`.
+#' @param lambda Ridge penalty for `vargaussian`.
 #'
-#' @return A list containing the estimated objects and the input parameters:
-#' \itemize{
-#'   \item \code{input_params}: parameters used during fitting.
-#'   \item \code{emission.model}: fitted emission model object.
-#'   \item \code{transition.model}: fitted transition model object.
-#'   \item \code{duration.model}: fitted duration model object.
-#' }
-#'
-#' @details The function initializes the maximum dwell times (if provided),
-#' constructs the modular models through their factories, and launches the EM
-#' algorithm to adapt the parameters to the supplied observations.
-#'
-#' @examples
-#' \dontrun{
-#' set.seed(123)
-#' obs <- data.frame(x = rnorm(100))
-#' fit <- fit_hsmm(obs, n_states = 2, model_type = "torus",
-#'                 max_iter = 10, verbose = FALSE)
-#' }
+#' @return An object of class `hsmm_fit`.
 #' @export
 fit_hsmm <- function(
-    # HMM parameters
-  data,
-  n_states,
-  covariates_omega = NULL,
-  covariates_q = NULL,
+    data,
+    n_states,
+    covariates_omega = NULL,
+    covariates_q = NULL,
+    semi = TRUE,
+    max_dwell = NULL,
+    model_type = "gaussian",
+    max_iter = 100,
+    tol = 1e-5,
+    verbose = TRUE,
+    init = NULL,
+    seed = NULL,
+    ar = 1,
+    lambda = 0,
+    family = NULL) {
 
-  # HSMM settings
-  semi = TRUE,
-  max_dwell = NULL,
+  if (!is.null(seed)) set.seed(seed)
+  if (!is.null(family)) model_type <- family
+  model_type <- tolower(model_type)
+  if (model_type %in% c("studentt", "tstudent")) model_type <- "student"
+  if (model_type %in% c("var", "var_gaussian")) model_type <- "vargaussian"
+  allowed_models <- c("gaussian", "poisson", "exponential", "gamma",
+                      "beta", "student", "torus", "vargaussian")
+  if (!model_type %in% allowed_models) stop("unknown model_type")
 
-  # Model Type
-  model_type = "torus",
+  data <- .as_numeric_matrix(data)
+  n_obs <- nrow(data)
+  n_states <- as.integer(n_states)
+  ar <- as.integer(ar)
 
-  # EM algorithm parameters
-  max_iter = 100,
-  tol = 1e-5,
-  verbose = TRUE,
-  init = NULL,
-  seed = NULL) {
+  if (n_obs < 2) stop("data must contain at least two rows")
+  if (n_states < 1 || n_states > n_obs) stop("n_states is not valid")
+  if (any(!is.finite(data))) stop("data contains non-finite values")
+  if (max_iter < 1) stop("max_iter must be positive")
+  if (!is.finite(tol) || tol < 0) stop("tol is not valid")
+  if (!is.finite(lambda) || lambda < 0) stop("lambda is not valid")
 
-  # Collect function arguments into a parameter list
-  params <- c(as.list(environment()))
+  if (!semi) {
+    max_dwell <- 1L
+  } else if (is.null(max_dwell)) {
+    max_dwell <- min(20L, max(2L, as.integer(n_obs / 10)))
+  }
+  max_dwell <- as.integer(max_dwell)
+  if (max_dwell < 1) stop("max_dwell must be positive")
 
-  # Number of observations (rows in data)
-  params$n_obs <- nrow(params$data)
-
-  # ============================
-  # Dwell-time and state indices
-  # ============================
-  # If user specifies a maximum dwell time, assign per-state dwell lengths.
-  if(!is.null(params$max_dwell)){
-    params$dwell_lengths <- rep(params$max_dwell, params$n_states)
-    params$state_indices <- rep(1:params$n_states, params$dwell_lengths)
-  } else {
-    # Default: single-step dwell times (reduces to a standard HMM)
-    params$max_dwell <- 1
-    params$dwell_lengths <- rep(params$max_dwell, params$n_states)
-    params$state_indices <- rep(1:params$n_states, params$dwell_lengths)
+  prepare_covariates <- function(x, name) {
+    if (is.null(x)) return(matrix(numeric(0), n_obs, 0))
+    x <- .as_numeric_matrix(x)
+    if (nrow(x) == n_obs - 1) x <- rbind(x, x[nrow(x), , drop = FALSE])
+    if (nrow(x) != n_obs) stop(name, " must have nrow(data) rows")
+    if (any(!is.finite(x))) stop(name, " contains non-finite values")
+    x
   }
 
-  # ============================
-  # Model construction (via factories)
-  # ============================
+  covariates_omega <- prepare_covariates(covariates_omega, "covariates_omega")
+  covariates_q <- prepare_covariates(covariates_q, "covariates_q")
 
-  # Duration model
-  duration.model.factory <- DurationModelFactory$new()
-  duration.model <- duration.model.factory$create(params)
+  if (model_type == "poisson" &&
+      any(data < 0 | abs(data - round(data)) > 1e-8)) {
+    stop("poisson data must be non-negative integers")
+  }
+  if (model_type %in% c("exponential", "gamma") && any(data <= 0)) {
+    stop(model_type, " data must be positive")
+  }
+  if (model_type == "beta" && any(data <= 0 | data >= 1)) {
+    stop("beta data must be inside (0, 1)")
+  }
+  if (model_type == "vargaussian" && (ar < 1 || n_obs <= ar + 1)) {
+    stop("ar is too large for the supplied data")
+  }
 
-  # Transition model
-  transition.model.factory <- TransitionModelFactory$new()
-  transition.model <- transition.model.factory$create(params,
-                                                      duration.model$p.array)
+  if (is.null(init)) init <- list()
+  initial_post <- init$post.pi
+  if (is.null(initial_post)) {
+    initial_post <- .make_initial_post(data, n_states, model_type)
+  } else {
+    initial_post <- as.matrix(initial_post)
+    if (!all(dim(initial_post) == c(n_obs, n_states))) {
+      stop("init$post.pi must have nrow(data) rows and n_states columns")
+    }
+    initial_post[!is.finite(initial_post) | initial_post < 0] <- 0
+    initial_post <- initial_post / rowSums(initial_post)
+    initial_post[!is.finite(initial_post)] <- 1 / n_states
+  }
 
-  # Emission model
-  emission.model.factory <- EmissionModelFactory$new()
-  emission.model <- emission.model.factory$create(params,
-                                                  transition.model$Pi,
-                                                  transition.model$post.pi)
+  params <- list(
+    data = data,
+    n_states = n_states,
+    n_obs = n_obs,
+    covariates_omega = covariates_omega,
+    covariates_q = covariates_q,
+    semi = isTRUE(semi),
+    max_dwell = max_dwell,
+    dwell_lengths = rep(max_dwell, n_states),
+    state_indices = rep(seq_len(n_states), each = max_dwell),
+    model_type = model_type,
+    max_iter = as.integer(max_iter),
+    tol = tol,
+    verbose = isTRUE(verbose),
+    init = init,
+    initial_post = initial_post,
+    seed = seed,
+    ar = ar,
+    lambda = lambda
+  )
 
-  # ============================
-  # EM Algorithm
-  # ============================
-  # Perform iterative parameter estimation
-  llk <- em.algorithm(params,
-                      emission.model, transition.model, duration.model)
+  duration.model <- DurationModelFactory$new()$create(params)
+  transition.model <- TransitionModelFactory$new()$create(
+    params, duration.model$p.array
+  )
+  emission.model <- EmissionModelFactory$new()$create(
+    params, transition.model$Pi, transition.model$post.pi
+  )
 
-  # ============================
-  # Output
-  # ============================
-  # Return fitted model components and input configuration
-  return(list(
+  em <- em.algorithm(params, emission.model, transition.model, duration.model)
+  decoded <- max.col(em$posterior, ties.method = "first")
+
+  out <- list(
+    call = match.call(),
     input_params = params,
     emission.model = emission.model,
     transition.model = transition.model,
     duration.model = duration.model,
-    loglik = llk
-  ))
+    loglik = em$loglik,
+    final_loglik = em$final_loglik,
+    posterior = em$posterior,
+    posterior_augmented = em$posterior_augmented,
+    pairwise_posterior = em$pairwise_posterior,
+    decoded_state = decoded,
+    converged = em$converged,
+    iterations = em$iterations
+  )
+  class(out) <- "hsmm_fit"
+  out
 }

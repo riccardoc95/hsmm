@@ -1,1 +1,3 @@
-hsmmpackage.so
+*.o
+*.so
+*.dll

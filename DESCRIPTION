@@ -1,7 +1,7 @@
 Package: hsmm
 Title: Hidden Semi-Markov Model Toolkit
 Version: 0.0.1
-Authors@R: 
+Authors@R:
     person(
       given = "Nome",
       family = "Cognome",
@@ -13,27 +13,18 @@ Description: Tools for fitting and simulating Hidden Semi-Markov Models (HSMMs)
     duration models, and covariate-dependent transitions.
 License: GPL-3
 Encoding: UTF-8
-Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Depends: R (>= 4.0.0)
 Imports:
+    graphics,
     R6,
     Rcpp,
-    RcppArmadillo
+    stats
 LinkingTo:
     Rcpp,
     RcppArmadillo
 Suggests:
-    testthat (>= 3.0.0),
-    pkgdown,
-    knitr,
-    rmarkdown,
-    mvtnorm,
-    dplyr,
-    tidyr,
-    MASS,
-    circular,
-    jsonlite,
-    nnet,
-    LaplacesDemon,
-VignetteBuilder: knitr
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+SystemRequirements: C++14
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3

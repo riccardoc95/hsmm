@@ -1,112 +1,92 @@
-#' DurationModel R6 Class
-#'
-#' Represents the duration (or dwell-time) component of a Hidden Semi-Markov Model (HSMM).
-#' This class defines the duration distribution parameters, including intercepts,
-#' time effects, and optional covariate effects. It also provides methods for computing
-#' the duration probability array and updating duration parameters during the EM algorithm.
-#'
-#' @details
-#' The duration model defines the probability of remaining in a given state for
-#' a certain number of time steps (dwell time). The underlying hazard function is
-#' based on a **Gompertz distribution** using a complementary log-log link (\code{cloglog}).
-#'
-#' @field p.array Array storing computed duration probabilities for each state and dwell time.
-#' @field beta.intercepts Numeric vector of intercept parameters for each state.
-#' @field beta.time_effects Numeric vector of duration-dependent slope parameters.
-#' @field beta.covariate Optional coefficients for duration covariates.
-#' @field d.state Numeric vector indexing which state each duration corresponds to.
-#' @field d.time Numeric vector of dwell-time values (1, 2, ..., M).
-#' @field d.covariates Optional matrix of covariate values for dwell-time modeling.
-#' @field link Character string indicating the link function used (default: "cloglog").
-#'
-#' @examples
-#' params <- list(n_states = 2, max_dwell = 5, semi = TRUE)
-#' dm <- DurationModel$new(params)
-#' dm$beta.intercepts
-#'
-library(R6)
-
-DurationModel <- R6Class(
+# Base class for the dwell-time part of the model.
+DurationModel <- R6::R6Class(
   "DurationModel",
   public = list(
-    # Public fields (model parameters)
-    p.array = NULL,           # Duration probability array
-    beta.intercepts = NULL,   # Intercept coefficients per state
-    beta.time_effects = NULL, # Time-dependent coefficients per state
-    beta.covariate = NULL,    # Optional covariate coefficients (unused here)
-    
-    d.state = NULL,           # State index associated with each dwell-time position
-    d.time = NULL,            # Time indices (1:M) for each state
-    d.covariates = NULL,      # Optional duration covariates
-    
-    link = NULL,              # Link function name (default "cloglog")
-    
-    #' @description
-    #' Initializes a new DurationModel object.
-    #' 
-    #' @param params A list containing:
-    #' \itemize{
-    #'   \item{\code{n_states}}{Number of hidden states.}
-    #'   \item{\code{max_dwell}}{Maximum dwell time per state.}
-    #'   \item{\code{semi}}{Logical, if TRUE (default) use semi-Markov structure.}
-    #' }
+    p.array = NULL,
+    beta.intercepts = NULL,
+    beta.time_effects = NULL,
+    beta.covariate = NULL,
+    link = "cloglog",
+
     initialize = function(params) {
-      K <- params$n_states     # Number of hidden states
-      M <- params$max_dwell    # Maximum dwell time per state
-      
-      # Random initialization of intercepts for each state
-      self$beta.intercepts <- runif(K, -3, -0.5)
-      
-      # State index vector (repeated for each dwell-time level)
-      self$d.state <- rep(1:K, each = M)
-      
-      if (params$semi) {
-        # Semi-Markov case: include time effect on hazard
-        self$beta.time_effects <- runif(K, 0.01, 0.3)
-        # Time index vector (1:M) repeated for each state
-        self$d.time <- rep(1:M, times = K)
+      K <- params$n_states
+      Q <- if (is.null(params$covariates_q)) 0 else ncol(params$covariates_q)
+
+      self$beta.intercepts <- stats::runif(K, -2.5, -1)
+      self$beta.time_effects <- if (params$semi) {
+        stats::runif(K, 0.02, 0.15)
       } else {
-        # Standard HMM case: no time-dependent effect
-        self$beta.time_effects <- rep(0, K)
-        self$d.time <- rep(0, K * M)
+        rep(0, K)
       }
-      
-      # Use complementary log-log link for hazard modeling
-      self$link <- "cloglog"
+      self$beta.covariate <- matrix(0, K, Q)
+
+      if (!is.null(params$init$duration)) {
+        .copy_init_fields(self, params$init$duration)
+      }
+      self$compute_p.array(params)
     },
-    
-    #' @description
-    #' Gompertz hazard base function.
-    #' Computes the hazard value for a given time index using a Gompertz-type
-    #' parameterization: \eqn{h(i) = exp(alpha + beta * i)}.
-    #'
-    #' @param i Integer or numeric vector representing time indices (1:M).
-    #' @param alpha Numeric intercept parameter.
-    #' @param betai Numeric slope parameter for time effect.
-    #' @return Numeric vector of hazard values.
-    gomp = function(i, alpha, betai) {
-      exp(pmin(alpha + betai * i, 700))  # Clamp exponent to 700 for numerical stability
-    },
-    
-    #' @description
-    #' Computes the duration probability array (\code{p.array}).
-    #' Placeholder method — should be implemented in subclass models.
-    #' 
-    #' @param params Model parameter list.
-    #' @return Invisibly returns \code{self} for method chaining.
+
     compute_p.array = function(params) {
+      K <- params$n_states
+      M <- params$max_dwell
+      Tm1 <- params$n_obs - 1
+      Q <- ncol(self$beta.covariate)
+      x <- params$covariates_q
+
+      self$p.array <- matrix(0, Tm1, K * M)
+      for (k in seq_len(K)) {
+        for (m in seq_len(M)) {
+          eta <- rep(self$beta.intercepts[k] +
+                       self$beta.time_effects[k] * (m + 0.5), Tm1)
+          if (Q > 0) {
+            eta <- eta + drop(x[seq_len(Tm1), , drop = FALSE] %*%
+                                self$beta.covariate[k, ])
+          }
+          p <- 1 - exp(-exp(pmax(pmin(eta, 20), -20)))
+          self$p.array[, (k - 1) * M + m] <- pmin(pmax(p, 1e-6), 1 - 1e-6)
+        }
+      }
       invisible(self)
     },
-    
-    #' @description
-    #' Updates the duration model coefficients (\eqn{\beta}) based on
-    #' posterior transition probabilities.
-    #' Placeholder method — to be customized by specific duration models.
-    #'
-    #' @param params Model parameter list.
-    #' @param post.bi.pi.aug 3D array of pairwise posterior transition probabilities.
-    #' @return Invisibly returns \code{self} for method chaining.
+
     compute_beta = function(params, post.bi.pi.aug) {
+      K <- params$n_states
+      M <- params$max_dwell
+      Tm1 <- params$n_obs - 1
+      Q <- ncol(self$beta.covariate)
+
+      if (K == 1) return(invisible(self))
+
+      age <- rep(seq_len(M) + 0.5, times = Tm1)
+      x <- NULL
+      if (Q > 0) {
+        ids <- rep(seq_len(Tm1), each = M)
+        x <- params$covariates_q[ids, , drop = FALSE]
+      }
+
+      for (k in seq_len(K)) {
+        counts <- .duration_counts(post.bi.pi.aug, K, M, k)
+        co <- .fit_duration_glm(
+          counts$cases, counts$noncases, age, x, params$semi
+        )
+        if (is.null(co)) next
+
+        self$beta.intercepts[k] <- unname(co["(Intercept)"])
+        if (!is.finite(self$beta.intercepts[k])) self$beta.intercepts[k] <- -2
+
+        if (params$semi && "age" %in% names(co)) {
+          self$beta.time_effects[k] <- unname(co["age"])
+        } else {
+          self$beta.time_effects[k] <- 0
+        }
+
+        if (Q > 0) {
+          for (j in seq_len(Q)) {
+            nm <- paste0("x", j)
+            self$beta.covariate[k, j] <- if (nm %in% names(co)) co[nm] else 0
+          }
+        }
+      }
       invisible(self)
     }
   )
